@@ -10,7 +10,7 @@ st.title("🛡️ Real-Time Fraud Command Center")
 
 # --- REPLACE THIS WITH YOUR RENDER API URL ---
 # Make sure it ends with /predict
-API_URL = "https://real-time-fraud-detector.onrender.com/"
+API_URL = "https://real-time-fraud-detector.onrender.com"
 
 # 2. SIMULATION DATA GENERATOR
 # Since the actual bank data is massive, we generate synthetic payloads 
