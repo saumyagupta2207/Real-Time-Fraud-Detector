@@ -1,4 +1,4 @@
-# 🛡️ Real-Time Cross-Border Fraud Anomaly Detection Engine
+# 🛡️ Real-Time Fraud Anomaly Detection Engine
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com/)
