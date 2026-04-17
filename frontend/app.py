@@ -11,7 +11,6 @@ st.set_page_config(page_title="RiskOps Streaming Dashboard", page_icon="📡", l
 API_URL = "https://real-time-fraud-detector.onrender.com/predict"
 
 # 1. INITIALIZE MEMORY (State Management)
-# We now decouple the UI display memory from the background storage memory
 if 'display_history' not in st.session_state:
     st.session_state.display_history = []
 if 'full_history' not in st.session_state:
@@ -40,8 +39,19 @@ def generate_stream_event():
         
     return payload, is_attack
 
-# 3. SIDEBAR: MODEL CARD & EXPORT
+# 3. SIDEBAR: CONFIG, MODEL CARD & EXPORT
 with st.sidebar:
+    st.header("⚙️ Risk Configuration")
+    risk_threshold = st.slider(
+        "Global Block Threshold (%)", 
+        min_value=1.0, 
+        max_value=99.0, 
+        value=85.0, 
+        step=1.0,
+        help="Transactions with a risk score above this value will be automatically blocked."
+    )
+    st.markdown("---")
+    
     st.header("🧠 Model Card")
     st.markdown("Engine performance metrics based on initial test evaluation.")
     st.metric("Recall (Fraud Caught)", "88.0%")
@@ -53,7 +63,6 @@ with st.sidebar:
     st.header("📥 Data Export")
     st.markdown("Export the complete session history. **Note: You must click 'Stop Stream' before downloading.**")
     
-    # Generate the CSV from the full, untruncated history
     if st.session_state.full_history:
         df_full = pd.DataFrame(st.session_state.full_history)
         csv = df_full.to_csv(index=False).encode('utf-8')
@@ -68,7 +77,6 @@ with st.sidebar:
 st.title("Fraud Detection System")
 st.markdown("Autonomous behavioral sequence detection streaming from the XGBoost API.")
 
-# Expand to 5 columns to fit all buttons and metrics
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
@@ -78,20 +86,18 @@ with col2:
     if st.button("⏹️ Stop Stream", use_container_width=True):
         st.session_state.stream_active = False
 with col3:
-    # THE NEW RESET BUTTON
     if st.button("🔄 Reset Dashboard", use_container_width=True):
         st.session_state.stream_active = False
-        st.session_state.display_history = [] # Fixed variable name
+        st.session_state.display_history = []
         st.session_state.full_history = []
         st.session_state.total_processed = 0
         st.session_state.total_anomalies = 0
-        st.rerun() # Forces the UI to refresh immediately
+        st.rerun() 
 with col4:
     metric_processed = st.empty()
 with col5:
     metric_anomalies = st.empty()
 
-# Render the initial state of the metrics
 metric_processed.metric("Transactions Processed", st.session_state.total_processed)
 metric_anomalies.metric("Anomalies Intercepted", st.session_state.total_anomalies)
 
@@ -116,8 +122,14 @@ if st.session_state.stream_active:
         try:
             res = requests.post(API_URL, json=payload).json()
             
+            # --- THE DYNAMIC RULES ENGINE ---
+            raw_prob_percent = res.get('fraud_probability', 0) * 100
+            
+            # The UI decides if it's blocked based on your slider
+            is_blocked = bool(raw_prob_percent >= risk_threshold)
+            
             st.session_state.total_processed += 1
-            if res.get('alert_triggered'):
+            if is_blocked:
                 st.session_state.total_anomalies += 1
                 
             metric_processed.metric("Transactions Processed", st.session_state.total_processed)
@@ -130,14 +142,12 @@ if st.session_state.stream_active:
                 "Timestamp": ist_time.strftime("%H:%M:%S"),
                 "Amount": f"${payload['Amount']:.2f}",
                 "Time Delta (s)": f"{payload['time_since_last_tx']:.0f}",
-                "Risk Score": f"{res.get('fraud_probability', 0) * 100:.1f}%",
-                "Status": "BLOCKED" if res.get('alert_triggered') else "APPROVED"
+                "Risk Score": f"{raw_prob_percent:.1f}%",
+                "Status": "BLOCKED" if is_blocked else "APPROVED"
             }
             
-            # Store in the full history for downloading
             st.session_state.full_history.insert(0, log_entry)
             
-            # Store in the display history and truncate for UI cleanliness
             st.session_state.display_history.insert(0, log_entry)
             st.session_state.display_history = st.session_state.display_history[:15]
             
@@ -149,10 +159,10 @@ if st.session_state.stream_active:
             
             feed_placeholder.dataframe(df_display.style.apply(style_status, axis=1), use_container_width=True, hide_index=True)
             
-            if res.get('alert_triggered'):
+            if is_blocked:
                 with alert_placeholder.container():
                     st.error("🚨 **HIGH-RISK SIGNATURE DETECTED**")
-                    st.markdown(f"**Amount:** ${payload['Amount']:.2f} | **Risk:** {res.get('fraud_probability')*100:.1f}%")
+                    st.markdown(f"**Amount:** ${payload['Amount']:.2f} | **Risk:** {raw_prob_percent:.1f}%")
                     st.markdown("**SHAP Root Cause Analysis:**")
                     for feat, weight in res.get('risk_drivers', {}).items():
                         st.markdown(f"- `{feat}`: +{weight}")
