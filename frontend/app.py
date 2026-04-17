@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 import numpy as np
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 st.set_page_config(page_title="RiskOps Streaming Dashboard", page_icon="📡", layout="wide")
 
@@ -123,8 +123,11 @@ if st.session_state.stream_active:
             metric_processed.metric("Transactions Processed", st.session_state.total_processed)
             metric_anomalies.metric("Anomalies Intercepted", st.session_state.total_anomalies)
             
+            # Calculate exact IST (UTC + 5:30)
+            ist_time = datetime.utcnow() + timedelta(hours=5, minutes=30)
+            
             log_entry = {
-                "Timestamp": datetime.now().strftime("%H:%M:%S"),
+                "Timestamp": ist_time.strftime("%H:%M:%S"),
                 "Amount": f"${payload['Amount']:.2f}",
                 "Time Delta (s)": f"{payload['time_since_last_tx']:.0f}",
                 "Risk Score": f"{res.get('fraud_probability', 0) * 100:.1f}%",
