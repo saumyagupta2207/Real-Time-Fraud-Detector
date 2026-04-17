@@ -18,21 +18,27 @@ if 'stream_active' not in st.session_state:
 
 # 2. SYNTHETIC STREAM GENERATOR
 def generate_stream_event(force_attack=False):
-    is_attack = force_attack or (np.random.random() < 0.15) # 15% natural attack rate for the demo
-    
-    payload = {f"V{i}": float(np.random.normal(0, 1)) for i in range(1, 29)}
+    is_attack = force_attack or (np.random.random() < 0.15) 
     
     if is_attack:
+        # THE ANOMALY: We skew the PCA vectors negatively to mimic a compromised profile
+        payload = {f"V{i}": float(np.random.normal(-4.5, 2)) for i in range(1, 29)}
+        
+        # High velocity, unusual amounts
         payload["Amount"] = float(np.random.uniform(3000, 15000))
         payload["time_since_last_tx"] = float(np.random.uniform(1, 5)) 
         payload["tx_sum_last_12h"] = payload["Amount"] + float(np.random.uniform(100, 500))
     else:
+        # Normal baseline profile
+        payload = {f"V{i}": float(np.random.normal(0, 1)) for i in range(1, 29)}
+        
+        # Standard velocity
         payload["Amount"] = float(np.random.uniform(10, 150))
         payload["time_since_last_tx"] = float(np.random.uniform(3600, 86400))
         payload["tx_sum_last_12h"] = payload["Amount"] + float(np.random.uniform(0, 100))
         
     return payload, is_attack
-
+    
 # 3. TOP NAVIGATION & KPIs
 st.title("📡 Live Cross-Border Fraud Monitor")
 st.markdown("Autonomous behavioral sequence detection streaming from the XGBoost API.")
