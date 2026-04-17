@@ -65,7 +65,7 @@ with st.sidebar:
         )
 
 # 4. TOP NAVIGATION & KPIs
-st.title("📡 Live Cross-Border Fraud Monitor")
+st.title("Fraud Detection System")
 st.markdown("Autonomous behavioral sequence detection streaming from the XGBoost API.")
 
 col1, col2, col3, col4 = st.columns(4)
@@ -76,9 +76,15 @@ with col1:
 with col2:
     if st.button("⏹️ Stop Stream", use_container_width=True):
         st.session_state.stream_active = False
-        
 with col3:
-    metric_processed = st.empty()
+    # THE NEW RESET BUTTON
+    if st.button("🔄 Reset Dashboard", use_container_width=True):
+        st.session_state.stream_active = False
+        st.session_state.tx_history = []
+        st.session_state.full_history = []
+        st.session_state.total_processed = 0
+        st.session_state.total_anomalies = 0
+        st.rerun() # Forces the UI to refresh immediately
 with col4:
     metric_anomalies = st.empty()
 
