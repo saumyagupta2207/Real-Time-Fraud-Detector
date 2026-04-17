@@ -62,16 +62,22 @@ if btn_normal or btn_attack:
         try:
             # Send the JSON payload to your FastAPI drive-thru window
             response = requests.post(API_URL, json=payload)
-            result = response.json()
             
-            # Display results
-            if result.get("alert_triggered"):
-                st.error(f"🛑 THREAT DETECTED: {result.get('message')}")
-                st.metric(label="Fraud Probability Confidence", value=f"{result.get('fraud_probability') * 100:.2f}%")
-                st.json(payload) # Show the analyst the exact data that triggered it
+            # THE SENIOR FIX: Catch API rejections before parsing the math
+            if response.status_code != 200:
+                st.error(f"Backend API Error (Code {response.status_code})")
+                st.json(response.json()) # Print the exact error Render is throwing
             else:
-                st.success(f"✅ CLEAR: {result.get('message')}")
-                st.metric(label="Fraud Probability Confidence", value=f"{result.get('fraud_probability') * 100:.2f}%")
+                result = response.json()
                 
+                # Display results
+                if result.get("alert_triggered"):
+                    st.error(f"🛑 THREAT DETECTED: {result.get('message')}")
+                    st.metric(label="Fraud Probability Confidence", value=f"{result.get('fraud_probability') * 100:.2f}%")
+                    st.json(payload)
+                else:
+                    st.success(f"✅ CLEAR: {result.get('message')}")
+                    st.metric(label="Fraud Probability Confidence", value=f"{result.get('fraud_probability') * 100:.2f}%")
+                    
         except Exception as e:
-            st.error(f"API Request Failed: {e}")
+            st.error(f"Frontend Request Failed: {e}")
