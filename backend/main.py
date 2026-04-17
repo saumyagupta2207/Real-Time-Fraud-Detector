@@ -28,7 +28,7 @@ def predict_fraud(transaction: TransactionInput):
         
         # Get probability
         probability = float(model.predict_proba(input_data)[0][1])
-        is_fraud = bool(probability > 0.85)
+        is_fraud = bool(probability > 0.5)
         
         # Calculate SHAP values for Explainability
         shap_values = explainer.shap_values(input_data)
