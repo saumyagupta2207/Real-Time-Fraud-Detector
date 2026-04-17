@@ -2,80 +2,114 @@ import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
+import time
+from datetime import datetime
 
-st.set_page_config(page_title="RiskOps Command Center", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="RiskOps Streaming Dashboard", page_icon="📡", layout="wide")
 
 # --- REPLACE WITH YOUR RENDER API URL ---
 API_URL = "https://real-time-fraud-detector.onrender.com/predict"
 
-# 1. HEADER & KPIs
-st.title("🛡️ RiskOps Command Center")
-st.markdown("Real-time behavioral sequence monitoring and anomaly detection.")
+# 1. INITIALIZE MEMORY (State Management)
+if 'tx_history' not in st.session_state:
+    st.session_state.tx_history = []
+if 'stream_active' not in st.session_state:
+    st.session_state.stream_active = False
 
-col1, col2, col3 = st.columns(3)
-col1.metric("System Status", "🟢 Online", "API Connected")
-col2.metric("Model Version", "XGB-v1.2", "Sequence Tracking Active")
-col3.metric("Latency", "~45ms", "SLA Met")
+# 2. SYNTHETIC STREAM GENERATOR
+def generate_stream_event(force_attack=False):
+    is_attack = force_attack or (np.random.random() < 0.15) # 15% natural attack rate for the demo
+    
+    payload = {f"V{i}": float(np.random.normal(0, 1)) for i in range(1, 29)}
+    
+    if is_attack:
+        payload["Amount"] = float(np.random.uniform(3000, 15000))
+        payload["time_since_last_tx"] = float(np.random.uniform(1, 5)) 
+        payload["tx_sum_last_12h"] = payload["Amount"] + float(np.random.uniform(100, 500))
+    else:
+        payload["Amount"] = float(np.random.uniform(10, 150))
+        payload["time_since_last_tx"] = float(np.random.uniform(3600, 86400))
+        payload["tx_sum_last_12h"] = payload["Amount"] + float(np.random.uniform(0, 100))
+        
+    return payload, is_attack
+
+# 3. TOP NAVIGATION & KPIs
+st.title("📡 Live Cross-Border Fraud Monitor")
+st.markdown("Autonomous behavioral sequence detection streaming from the XGBoost API.")
+
+col1, col2, col3, col4 = st.columns(4)
+
+# Stream Controls
+with col1:
+    if st.button("▶️ Start Live Stream", type="primary", use_container_width=True):
+        st.session_state.stream_active = True
+with col2:
+    if st.button("⏹️ Stop Stream", use_container_width=True):
+        st.session_state.stream_active = False
+        
+with col3:
+    st.metric("Transactions Processed", len(st.session_state.tx_history))
+with col4:
+    fraud_count = sum(1 for tx in st.session_state.tx_history if tx['Status'] == 'BLOCKED')
+    st.metric("Anomalies Intercepted", fraud_count)
 
 st.markdown("---")
 
-# 2. THE INVESTIGATION PANEL
-st.subheader("🔍 Manual Transaction Intercept")
-st.markdown("Use this panel to manually inject transaction parameters and evaluate the model's response and SHAP explanations.")
+# 4. DASHBOARD LAYOUT
+feed_col, alert_col = st.columns([2, 1])
 
-with st.form("transaction_form"):
-    col_a, col_b, col_c = st.columns(3)
-    
-    with col_a:
-        amount = st.number_input("Transaction Amount ($)", min_value=1.0, value=25.0, step=10.0)
-    with col_b:
-        time_since = st.number_input("Seconds Since Last Tx", min_value=1.0, value=3600.0, help="Low values indicate high velocity.")
-    with col_c:
-        sum_12h = st.number_input("Total Spent Last 12h ($)", min_value=0.0, value=50.0)
+with feed_col:
+    st.subheader("Live Transaction Feed")
+    feed_placeholder = st.empty() # Placeholder for our auto-updating table
+
+with alert_col:
+    st.subheader("Critical Threat Intelligence")
+    alert_placeholder = st.empty() # Placeholder for SHAP explainability
+
+# 5. THE LIVE STREAM LOOP
+if st.session_state.stream_active:
+    while st.session_state.stream_active:
+        # Generate data and hit the API
+        payload, actual_attack = generate_stream_event()
         
-    submit_button = st.form_submit_button("Run Risk Analysis", type="primary")
-
-# 3. ANALYSIS EXECUTION & DISPLAY
-if submit_button:
-    # Build synthetic baseline for PCA features (V1-V28) so we only manipulate our custom features
-    payload = {f"V{i}": float(np.random.normal(0, 1)) for i in range(1, 29)}
-    payload["Amount"] = amount
-    payload["time_since_last_tx"] = time_since
-    payload["tx_sum_last_12h"] = sum_12h
-    
-    with st.spinner("Analyzing cross-border behavioral sequence..."):
         try:
-            response = requests.post(API_URL, json=payload)
+            res = requests.post(API_URL, json=payload).json()
             
-            if response.status_code != 200:
-                st.error(f"Backend API Error (Code {response.status_code})")
-            else:
-                result = response.json()
-                
-                # Professional Display Logic
-                if result.get("alert_triggered"):
-                    st.error("### 🚨 THREAT DETECTED: TRANSACTION BLOCKED")
-                    
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.metric(label="Fraud Probability", value=f"{result.get('fraud_probability') * 100:.2f}%")
-                    
-                    with c2:
-                        st.markdown("**Key Risk Drivers (SHAP Explainability):**")
-                        drivers = result.get("risk_drivers", {})
-                        if drivers:
-                            for feature, weight in drivers.items():
-                                st.markdown(f"- **`{feature}`**: High mathematical impact (+{weight})")
-                        else:
-                            st.write("No distinct singular driver isolated.")
-                            
-                    with st.expander("View Raw JSON Payload"):
-                        st.json(payload)
-                        
-                else:
-                    st.success("### ✅ CLEAR: TRANSACTION APPROVED")
-                    st.metric(label="Fraud Probability", value=f"{result.get('fraud_probability') * 100:.2f}%", delta="- Low Risk")
-                    st.markdown("Behavioral sequence falls within standard parameters.")
-                    
+            # Format the log entry
+            log_entry = {
+                "Timestamp": datetime.now().strftime("%H:%M:%S"),
+                "Amount": f"${payload['Amount']:.2f}",
+                "Time Delta (s)": f"{payload['time_since_last_tx']:.0f}",
+                "Risk Score": f"{res.get('fraud_probability', 0) * 100:.1f}%",
+                "Status": "BLOCKED" if res.get('alert_triggered') else "APPROVED"
+            }
+            
+            # Add to memory (keep only last 15 rows for UI cleanliness)
+            st.session_state.tx_history.insert(0, log_entry)
+            st.session_state.tx_history = st.session_state.tx_history[:15]
+            
+            # --- UPDATE THE UI ---
+            df = pd.DataFrame(st.session_state.tx_history)
+            
+            # Color code the dataframe based on status
+            def style_status(row):
+                color = '#ff4b4b' if row['Status'] == 'BLOCKED' else '#00cc66'
+                return [f'color: {color}'] * len(row)
+            
+            feed_placeholder.dataframe(df.style.apply(style_status, axis=1), use_container_width=True, hide_index=True)
+            
+            # Update the Alert Panel if a threat is caught
+            if res.get('alert_triggered'):
+                with alert_placeholder.container():
+                    st.error("🚨 **HIGH-RISK SIGNATURE DETECTED**")
+                    st.markdown(f"**Amount:** ${payload['Amount']:.2f} | **Risk:** {res.get('fraud_probability')*100:.1f}%")
+                    st.markdown("**SHAP Root Cause Analysis:**")
+                    for feat, weight in res.get('risk_drivers', {}).items():
+                        st.markdown(f"- `{feat}`: +{weight}")
+            
         except Exception as e:
-            st.error(f"Connection Failed. Ensure API is live. Error: {e}")
+            feed_placeholder.error("API Disconnected.")
+            st.session_state.stream_active = False
+            
+        # Pause for 1.5 seconds before the next transaction hits
+        time.sleep(1.5)
