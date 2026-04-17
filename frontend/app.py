@@ -5,7 +5,7 @@ import numpy as np
 import time
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="RiskOps Streaming Dashboard", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Real Time Fraud Detection Dashboard", page_icon="📡", layout="wide")
 
 # --- REPLACE WITH YOUR RENDER API URL ---
 API_URL = "https://real-time-fraud-detector.onrender.com/predict"
@@ -74,7 +74,7 @@ with st.sidebar:
         )
 
 # 4. TOP NAVIGATION & KPIs
-st.title("Fraud Detection System")
+st.title("Real Time Fraud Detection System")
 st.markdown("Autonomous behavioral sequence detection streaming from the XGBoost API.")
 
 col1, col2, col3, col4, col5 = st.columns(5)
