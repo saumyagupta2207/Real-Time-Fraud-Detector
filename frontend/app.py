@@ -68,7 +68,8 @@ with st.sidebar:
 st.title("Fraud Detection System")
 st.markdown("Autonomous behavioral sequence detection streaming from the XGBoost API.")
 
-col1, col2, col3, col4 = st.columns(4)
+# Expand to 5 columns to fit all buttons and metrics
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     if st.button("▶️ Start Live Stream", type="primary", use_container_width=True):
@@ -80,14 +81,17 @@ with col3:
     # THE NEW RESET BUTTON
     if st.button("🔄 Reset Dashboard", use_container_width=True):
         st.session_state.stream_active = False
-        st.session_state.tx_history = []
+        st.session_state.display_history = [] # Fixed variable name
         st.session_state.full_history = []
         st.session_state.total_processed = 0
         st.session_state.total_anomalies = 0
         st.rerun() # Forces the UI to refresh immediately
 with col4:
+    metric_processed = st.empty()
+with col5:
     metric_anomalies = st.empty()
 
+# Render the initial state of the metrics
 metric_processed.metric("Transactions Processed", st.session_state.total_processed)
 metric_anomalies.metric("Anomalies Intercepted", st.session_state.total_anomalies)
 
